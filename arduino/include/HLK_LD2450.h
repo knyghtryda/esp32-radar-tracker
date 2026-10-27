@@ -38,11 +38,16 @@ public:
   HLK_LD2450(HardwareSerial &serial) : _serial(serial) {
     clearTargets();
   }
+
+  uint32_t bytesReceived() const { return _bytesReceived; }
+  uint32_t validFrames() const { return _validFrames; }
+  uint32_t invalidFrames() const { return _invalidFrames; }
   
   void update() {
     // Read available data from serial
     while (_serial.available()) {
       uint8_t byte = _serial.read();
+      _bytesReceived++;
       
       // Look for frame header
       if (!_receivingFrame) {
@@ -69,6 +74,9 @@ public:
         if (_bufferIndex >= FRAME_SIZE) {
           if (checkTail()) {
             parseFrame();
+            _validFrames++;
+          } else {
+            _invalidFrames++;
           }
           resetBuffer();
         }
@@ -88,6 +96,9 @@ private:
   uint8_t _buffer[50];
   int _bufferIndex = 0;
   bool _receivingFrame = false;
+  uint32_t _bytesReceived = 0;
+  uint32_t _validFrames = 0;
+  uint32_t _invalidFrames = 0;
   
   void clearTargets() {
     for (int i = 0; i < NUM_TARGETS; i++) {
@@ -119,15 +130,25 @@ private:
     }
     return true;
   }
+
+  // LD2450 coordinates and speed use bit 15 as the sign and the lower
+  // 15 bits as magnitude; this is not two's-complement encoding.
+  int16_t decodeSignedMagnitude(uint16_t raw) const {
+    const int16_t magnitude = raw & 0x7FFF;
+    return (raw & 0x8000) ? magnitude : -magnitude;
+  }
   
   void parseFrame() {
     // Parse 3 targets (each target is 8 bytes)
     int offset = REPORT_HEADER_SIZE; // Start after header
     
     for (int i = 0; i < NUM_TARGETS; i++) {
-      int16_t x = (int16_t)(_buffer[offset + 1] << 8 | _buffer[offset]);
-      int16_t y = (int16_t)(_buffer[offset + 3] << 8 | _buffer[offset + 2]);
-      int16_t speed = (int16_t)(_buffer[offset + 5] << 8 | _buffer[offset + 4]);
+      const uint16_t rawX = (uint16_t)(_buffer[offset + 1] << 8 | _buffer[offset]);
+      const uint16_t rawY = (uint16_t)(_buffer[offset + 3] << 8 | _buffer[offset + 2]);
+      const uint16_t rawSpeed = (uint16_t)(_buffer[offset + 5] << 8 | _buffer[offset + 4]);
+      const int16_t x = decodeSignedMagnitude(rawX);
+      const int16_t y = decodeSignedMagnitude(rawY);
+      const int16_t speed = decodeSignedMagnitude(rawSpeed);
       uint16_t resolution = (uint16_t)(_buffer[offset + 7] << 8 | _buffer[offset + 6]);
       
       // Check if target is valid (not zero)

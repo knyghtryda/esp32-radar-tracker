@@ -1,14 +1,14 @@
 # ESP32 Radar Tracker with HLK-LD2450
 
-Real-time radar tracking system using the HLK-LD2450 24GHz mmWave radar sensor with OLED display visualization. Features both Arduino and CircuitPython implementations for the ESP32-S3.
+Real-time radar tracking system using the HLK-LD2450 24GHz mmWave radar sensor. The Arduino build targets the original LilyGO TTGO T-Display (ESP32 with onboard ST7789V color LCD). The CircuitPython files are earlier ESP32-S3 experiments and have not been ported to the T-Display.
 
 ## 🎯 Features
 
 - **Multi-Target Tracking**: Simultaneously tracks up to 3 targets with X/Y coordinates
-- **Real-time Visualization**: OLED display with animated radar sweep and target positions
+- **Real-time Visualization**: Onboard LCD with radar sweep and target positions
 - **Dual Platform Support**: 
   - Arduino C++ with optimized performance
-  - CircuitPython with multiple visualization modes
+  - CircuitPython prototypes for the previous ESP32-S3 hardware
 - **Multiple Visualization Modes**:
   - Classic radar sweep display
   - Alien-style animated tracking
@@ -17,40 +17,33 @@ Real-time radar tracking system using the HLK-LD2450 24GHz mmWave radar sensor w
 
 ## 📡 Hardware Requirements
 
-- **ESP32-S3** (tested on ProS3 board)
+- **LilyGO TTGO T-Display** (original ESP32 version with 1.14-inch ST7789V LCD)
 - **HLK-LD2450** 24GHz mmWave Radar Sensor
-- **0.96" OLED Display** (128x64, I2C, SSD1306)
 - USB-C cable for programming and power
 
 ### Wiring Diagram
 
-**Radar to ESP32:**
-- TX → RX (GPIO 44)
-- RX → TX (GPIO 43)
+**Radar to T-Display:**
+- TX → GPIO 26 (ESP32 UART RX)
+- RX → GPIO 27 (ESP32 UART TX)
 - VCC → 5V
 - GND → GND
 
-**OLED to ESP32:**
-- SDA → GPIO 8
-- SCL → GPIO 9
-- VCC → 3.3V
-- GND → GND
+The LCD is built into the board. GPIO26 and GPIO27 are used for radar UART so they do not overlap the LCD's SPI pins.
 
 ## 🚀 Quick Start
 
-### Arduino Setup
+### Arduino Setup (PlatformIO)
 
-1. Install Arduino IDE with ESP32 support
-2. Install required libraries:
-   - Adafruit SSD1306
-   - Adafruit GFX Library
-3. Open `arduino/ESP32_Radar_Tracker.ino`
-4. Select board: **ESP32-S3 Dev Module**
-5. Upload to your ESP32
+1. Install PlatformIO Core or the VS Code PlatformIO extension
+2. Open the `arduino/` folder as a PlatformIO project
+3. Build and upload the `lilygo-t-display` environment
+
+The PlatformIO configuration selects the original ESP32 T-Display and configures TFT_eSPI for its onboard ST7789V display.
 
 ### CircuitPython Setup
 
-1. Install CircuitPython 9.x on your ESP32-S3
+1. Install CircuitPython 9.x on an ESP32-S3 (this legacy implementation is not ported to the T-Display)
 2. Install required libraries on device:
    - adafruit_displayio_ssd1306
    - adafruit_display_text
@@ -89,7 +82,7 @@ See [utils/README.md](utils/README.md) for detailed utility documentation.
 - **Detection Range**: 0-6 meters
 - **Angle Coverage**: ±60°
 - **Maximum Targets**: 3 simultaneous
-- **Protocol**: UART (115200 baud)
+- **Protocol**: UART (256000 baud, 8N1)
 - **Update Rate**: ~10 Hz
 - **Technology**: 24GHz FMCW radar
 
@@ -97,8 +90,11 @@ See [utils/README.md](utils/README.md) for detailed utility documentation.
 
 ### Arduino Version
 - Clean radar sweep with target markers
-- Distance and position text overlay
-- 128x64 optimized graphics
+- 180-degree forward radar on the 240x135 LCD, with blue range arcs and colored targets
+- Logarithmic 0-10 m scale; targets beyond 10 m clamp to the outer edge
+- Displays up to three valid targets simultaneously; the status strip shows the nearest
+- A one-second semicircular pulse expands outward from the radar origin; each target marker appears as the pulse reaches it, then fades over one second
+- Three fixed footer columns show each target's range to one decimal place and do not fade
 
 ### CircuitPython Versions
 
@@ -125,9 +121,8 @@ See [utils/README.md](utils/README.md) for detailed utility documentation.
 3. Run diagnostic mode to check protocol
 
 ### Display Not Working
-1. Verify I2C address (0x3C default)
-2. Check SDA/SCL wiring
-3. Run `i2c_scan.py` to detect display
+1. Confirm the board is the original T-Display with the onboard ST7789V LCD, not the T-Display-S3
+2. Confirm TFT_eSPI is installed by PlatformIO and the selected environment is `lilygo-t-display`
 
 ### COM Port Issues
 - Windows: Check Device Manager for COM port
@@ -139,9 +134,11 @@ See [utils/README.md](utils/README.md) for detailed utility documentation.
 ```
 esp32-radar-tracker/
 ├── arduino/              # Arduino C++ implementation
-│   ├── ESP32_Radar_Tracker.ino
-│   ├── HLK_LD2450.h     # Radar protocol parser
-│   └── RadarDisplay.h   # OLED graphics
+│   ├── include/
+│   │   ├── HLK_LD2450.h  # Radar protocol parser
+│   │   └── RadarDisplay.h # Radar display drawing
+│   ├── src/main.cpp
+│   └── platformio.ini
 ├── circuitpython/       # Multiple CircuitPython versions
 │   ├── code_correct_protocol.py
 │   ├── code_alien_style.py
@@ -183,4 +180,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Status**: ✅ Fully functional - tested with ESP32-S3 ProS3 and HLK-LD2450
+**Status**: Arduino code is being ported to the original LilyGO TTGO T-Display; hardware validation is pending.
